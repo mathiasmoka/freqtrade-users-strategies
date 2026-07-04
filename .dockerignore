@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+.venv
+experiments/configs
+experiments/database
+experiments/logs
+experiments/results
+experiments/runs
+streamlit.log
+

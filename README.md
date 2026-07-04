@@ -25,6 +25,62 @@ freqtrade download-data -c user_data/config-torch.json --timerange 20240701-2024
 freqtrade hyperopt --hyperopt-loss SharpeHyperOptLossDaily --spaces buy sell stoploss -c user_data/config-torch.json --strategy haFbmS --timerange=20240601-20240914 --epochs 100
 ````
 
+## MVP benchmark stack
+
+The repository now contains a local MVP to benchmark many strategies with:
+
+- SQLite as the source of truth for strategy metadata and run states,
+- a queue-based runner that persists each step between backtest and hyperopt phases,
+- a Streamlit dashboard that reads partial results in real time,
+- Docker Compose for local execution.
+
+### Main components
+
+- `freqtrade_lab/` contains the Python CLI, SQLite schema, strategy discovery and pipeline runner.
+- `dashboards/streamlit_app.py` shows queued, running, completed and failed runs directly from SQLite.
+- `config/` contains base config templates for spot and futures.
+- `docker-compose.yml` starts the `runner` worker and the `dashboard`.
+
+### Start the MVP
+
+Build and start the containers:
+
+```shell
+docker compose build
+docker compose up -d dashboard runner
+```
+
+Initialize the database and discover the strategies:
+
+```shell
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli init-db
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli discover
+```
+
+Queue a first batch:
+
+```shell
+docker compose exec runner python -m freqtrade_lab.cli enqueue \
+  --timerange 20240101-20240301 \
+  --pairs BTC/USDT,ETH/USDT,SOL/USDT \
+  --epochs 20 \
+  --spaces buy,sell,roi,stoploss \
+  --limit 10
+```
+
+The worker service will pick queued runs automatically. The dashboard is available at:
+
+```text
+http://localhost:8501
+```
+
+### Notes
+
+- Spot and futures are inferred from the strategy path. Files under `Strategies/futures/` are treated as futures. Other strategy folders default to spot.
+- The runner writes incremental state to `experiments/database/results.sqlite`.
+- Runtime artifacts are written to `experiments/configs/`, `experiments/runs/` and `experiments/logs/`.
+- You still need market data compatible with your chosen pairs and timeframes for Freqtrade backtests to succeed.
+
 ## Contributing
 Contacts: 
 
@@ -33,7 +89,6 @@ Contacts:
 
 Contributions to the project are welcome! If you find any issues or have suggestions for improvements, please open an
 issue or submit a pull request on the [GitHub repository](https://github.com/AlexCryptoKing/freqailstm.git).
-
 
 
 

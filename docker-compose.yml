@@ -1,0 +1,37 @@
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    entrypoint: []
+    command: ["python", "-m", "freqtrade_lab.cli", "worker", "--poll-interval", "10"]
+    environment:
+      FREQTRADE_EXCHANGE: ${FREQTRADE_EXCHANGE:-binance}
+      FREQTRADE_DATA_DIR: ${FREQTRADE_DATA_DIR:-/app/data}
+      FREQTRADE_DB_PATH: ${FREQTRADE_DB_PATH:-/app/experiments/database/results.sqlite}
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    entrypoint: []
+    command:
+      [
+        "streamlit",
+        "run",
+        "dashboards/streamlit_app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501"
+      ]
+    environment:
+      FREQTRADE_DB_PATH: ${FREQTRADE_DB_PATH:-/app/experiments/database/results.sqlite}
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      - runner
