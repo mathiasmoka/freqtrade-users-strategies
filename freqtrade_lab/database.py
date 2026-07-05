@@ -231,24 +231,30 @@ def update_run(run_id: int, **fields: Any) -> None:
 
 def add_event(run_id: int, event_type: str, message: str) -> None:
     with connect() as connection:
-        connection.execute(
-            """
-            INSERT INTO events (run_id, event_type, message, created_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (run_id, event_type, message, utcnow()),
-        )
+        try:
+            connection.execute(
+                """
+                INSERT INTO events (run_id, event_type, message, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (run_id, event_type, message, utcnow()),
+            )
+        except sqlite3.IntegrityError:
+            return
 
 
 def add_artifact(run_id: int, artifact_type: str, file_path: str) -> None:
     with connect() as connection:
-        connection.execute(
-            """
-            INSERT INTO artifacts (run_id, artifact_type, file_path, created_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (run_id, artifact_type, file_path, utcnow()),
-        )
+        try:
+            connection.execute(
+                """
+                INSERT INTO artifacts (run_id, artifact_type, file_path, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (run_id, artifact_type, file_path, utcnow()),
+            )
+        except sqlite3.IntegrityError:
+            return
 
 
 def replace_metrics(run_id: int, metric_scope: str, metrics: dict[str, Any]) -> None:
@@ -292,4 +298,3 @@ def replace_parameters(run_id: int, parameters: dict[str, Any]) -> None:
             """,
             [(run_id, key, adapt_json(value), utcnow()) for key, value in parameters.items()],
         )
-

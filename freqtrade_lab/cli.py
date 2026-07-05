@@ -61,6 +61,28 @@ def command_clear_runs(_: argparse.Namespace) -> None:
     print("Cleared run state tables")
 
 
+def command_status(args: argparse.Namespace) -> None:
+    init_db()
+    rows = fetch_all(
+        """
+        SELECT runs.id, strategies.class_name, strategies.market_type, runs.status, runs.phase, runs.status_message
+        FROM runs
+        JOIN strategies ON strategies.id = runs.strategy_id
+        ORDER BY runs.id DESC
+        LIMIT ?
+        """,
+        (args.limit,),
+    )
+    if not rows:
+        print("No runs found")
+        return
+    for row in rows:
+        print(
+            f"run={row['id']} strategy={row['class_name']} market={row['market_type']} "
+            f"status={row['status']} phase={row['phase']} message={row['status_message'] or '-'}"
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Freqtrade strategy benchmark MVP")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -90,6 +112,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     clear_runs_parser = subparsers.add_parser("clear-runs", help="Clear run state while keeping discovered strategies")
     clear_runs_parser.set_defaults(func=command_clear_runs)
+
+    status_parser = subparsers.add_parser("status", help="Show recent run statuses")
+    status_parser.add_argument("--limit", type=int, default=20)
+    status_parser.set_defaults(func=command_status)
 
     return parser
 

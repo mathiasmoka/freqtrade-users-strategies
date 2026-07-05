@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from freqtrade_lab.settings import CONFIG_DIR, CONFIG_OUTPUT_DIR, DATA_DIR
+from freqtrade_lab.settings import CONFIG_DIR, CONFIG_OUTPUT_DIR, USER_DATA_DIR
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -38,8 +38,8 @@ def build_resolved_config(run_id: int, strategy: dict[str, Any], scenario: dict[
     merged["stake_currency"] = scenario.get("stake_currency", merged["stake_currency"])
     merged["stake_amount"] = scenario.get("stake_amount", merged["stake_amount"])
     merged["dry_run"] = True
-    merged["user_data_dir"] = str(DATA_DIR)
-    merged["datadir"] = str(DATA_DIR)
+    merged["user_data_dir"] = str(USER_DATA_DIR)
+    merged.pop("datadir", None)
     merged["bot_name"] = f"run-{run_id}"
 
     output_path = CONFIG_OUTPUT_DIR / f"run_{run_id:05d}.json"
@@ -47,4 +47,3 @@ def build_resolved_config(run_id: int, strategy: dict[str, Any], scenario: dict[
     output_path.write_text(rendered + "\n", encoding="utf-8")
     config_hash = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
     return output_path, config_hash, merged
-

@@ -1,0 +1,32 @@
+{
+  "strategy_name": "CofiBitStrategy",
+  "params": {
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "max_open_trades": {
+      "max_open_trades": Infinity
+    },
+    "buy": {
+      "buy_adx": 28,
+      "buy_fastx": 29
+    },
+    "sell": {
+      "sell_fastx": 73
+    },
+    "roi": {
+      "0": 0.19,
+      "13": 0.035,
+      "32": 0.013,
+      "110": 0
+    },
+    "stoploss": {
+      "stoploss": -0.098
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-07-04 15:57:49.609761+00:00"
+}

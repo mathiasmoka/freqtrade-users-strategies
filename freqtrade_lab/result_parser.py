@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from json import JSONDecoder
 from pathlib import Path
 from typing import Any
@@ -56,12 +57,51 @@ def _normalize_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def parse_backtest_metrics(path: Path) -> dict[str, Any] | None:
+def find_backtest_result_file(path: Path) -> Path | None:
     if not path.exists():
         return None
+    if path.is_file():
+        return path
+
+    candidates = [
+        child
+        for child in path.iterdir()
+        if child.is_file()
+        and child.suffix in {".json", ".zip"}
+        and not child.name.endswith(".meta.json")
+        and not child.name.endswith("_config.json")
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda child: child.stat().st_mtime)
+
+
+def _load_backtest_payload(path: Path) -> Any | None:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        if path.suffix == ".zip":
+            with zipfile.ZipFile(path) as archive:
+                names = [
+                    name
+                    for name in archive.namelist()
+                    if name.endswith(".json")
+                    and not name.endswith(".meta.json")
+                    and not name.endswith("_config.json")
+                ]
+                if not names:
+                    return None
+                return json.loads(archive.read(names[0]))
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, KeyError, zipfile.BadZipFile):
+        return None
+
+
+def parse_backtest_metrics(path: Path) -> dict[str, Any] | None:
+    result_path = find_backtest_result_file(path)
+    if result_path is None:
+        return None
+
+    payload = _load_backtest_payload(result_path)
+    if payload is None:
         return None
 
     candidates = _iter_dicts(payload)
@@ -111,4 +151,3 @@ def parse_hyperopt_parameters(text: str) -> tuple[dict[str, Any], dict[str, Any]
     flattened: dict[str, Any] = {}
     _flatten("", payload, flattened)
     return flattened, payload
-

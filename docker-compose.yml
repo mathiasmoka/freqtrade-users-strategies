@@ -4,10 +4,11 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     entrypoint: []
+    restart: unless-stopped
     command: ["python", "-m", "freqtrade_lab.cli", "worker", "--poll-interval", "10"]
     environment:
       FREQTRADE_EXCHANGE: ${FREQTRADE_EXCHANGE:-binance}
-      FREQTRADE_DATA_DIR: ${FREQTRADE_DATA_DIR:-/app/data}
+      FREQTRADE_USER_DATA_DIR: ${FREQTRADE_USER_DATA_DIR:-/app/user_data}
       FREQTRADE_DB_PATH: ${FREQTRADE_DB_PATH:-/app/experiments/database/results.sqlite}
     volumes:
       - .:/app

@@ -19,8 +19,8 @@ from freqtrade_lab.database import (
     update_run,
     utcnow,
 )
-from freqtrade_lab.result_parser import parse_backtest_metrics, parse_hyperopt_parameters
-from freqtrade_lab.settings import LOGS_DIR, ROOT_DIR, RUNS_DIR, STRATEGIES_DIR, relative_to_root
+from freqtrade_lab.result_parser import find_backtest_result_file, parse_backtest_metrics, parse_hyperopt_parameters
+from freqtrade_lab.settings import DATA_DIR, LOGS_DIR, ROOT_DIR, RUNS_DIR, USER_DATA_DIR, relative_to_root
 
 
 class PipelineError(RuntimeError):
@@ -117,8 +117,23 @@ def _execute_command(run_id: int, phase: str, command: list[str], log_path: Path
     _write_log(log_path, result.stderr)
     update_run(run_id, log_path=relative_to_root(log_path), exit_code=result.returncode)
     if result.returncode != 0:
-        raise PipelineError(f"{phase} failed with exit code {result.returncode}")
+        error_excerpt = (result.stderr or result.stdout).strip().splitlines()
+        error_message = error_excerpt[-1] if error_excerpt else "Unknown freqtrade error"
+        raise PipelineError(f"{phase} failed with exit code {result.returncode}: {error_message}")
     return result
+
+
+def _assert_market_data_available() -> None:
+    if not DATA_DIR.exists():
+        raise PipelineError(
+            f"No market data directory found at {DATA_DIR}. "
+            "Download historical data before running backtests."
+        )
+    if not any(path.is_file() for path in DATA_DIR.rglob("*")):
+        raise PipelineError(
+            f"No market data files found under {DATA_DIR}. "
+            "Download historical data before running backtests."
+        )
 
 
 def _create_optimized_strategy(run_id: int, strategy: dict[str, Any], payload: dict[str, Any]) -> tuple[Path, str]:
@@ -197,6 +212,7 @@ def process_run(run_id: int) -> None:
         status_message="Building config",
     )
     add_event(run_id, "status", "Run started")
+    _assert_market_data_available()
 
     config_path, config_hash, _ = build_resolved_config(run_id, strategy, scenario)
     update_run(
@@ -207,13 +223,17 @@ def process_run(run_id: int) -> None:
     )
     _store_artifact(run_id, "resolved_config", config_path)
 
-    baseline_result_path = run_dir / "baseline_backtest.json"
-    final_result_path = run_dir / "final_backtest.json"
+    baseline_result_dir = run_dir / "baseline_backtest"
+    final_result_dir = run_dir / "final_backtest"
+    baseline_result_dir.mkdir(parents=True, exist_ok=True)
+    final_result_dir.mkdir(parents=True, exist_ok=True)
 
     strategy_dir = _strategy_directory(strategy)
     backtest_command = [
         "freqtrade",
         "backtesting",
+        "--userdir",
+        str(USER_DATA_DIR),
         "--config",
         str(config_path),
         "--strategy",
@@ -224,14 +244,16 @@ def process_run(run_id: int) -> None:
         strategy["timerange"],
         "--export",
         "trades",
-        "--export-filename",
-        str(baseline_result_path),
+        "--backtest-directory",
+        str(baseline_result_dir),
     ]
 
     update_run(run_id, phase="baseline_backtest", status_message="Running baseline backtest")
-    baseline_result = _execute_command(run_id, "baseline_backtest", backtest_command, log_path)
-    _store_artifact(run_id, "baseline_backtest", baseline_result_path)
-    metrics = parse_backtest_metrics(baseline_result_path)
+    _execute_command(run_id, "baseline_backtest", backtest_command, log_path)
+    baseline_result_path = find_backtest_result_file(baseline_result_dir)
+    if baseline_result_path:
+        _store_artifact(run_id, "baseline_backtest", baseline_result_path)
+    metrics = parse_backtest_metrics(baseline_result_dir)
     if metrics:
         replace_metrics(run_id, "baseline", metrics)
     else:
@@ -241,6 +263,8 @@ def process_run(run_id: int) -> None:
     hyperopt_command = [
         "freqtrade",
         "hyperopt",
+        "--userdir",
+        str(USER_DATA_DIR),
         "--config",
         str(config_path),
         "--strategy",
@@ -284,6 +308,8 @@ def process_run(run_id: int) -> None:
         final_command = [
             "freqtrade",
             "backtesting",
+            "--userdir",
+            str(USER_DATA_DIR),
             "--config",
             str(config_path),
             "--strategy",
@@ -294,12 +320,14 @@ def process_run(run_id: int) -> None:
             strategy["timerange"],
             "--export",
             "trades",
-            "--export-filename",
-            str(final_result_path),
+            "--backtest-directory",
+            str(final_result_dir),
         ]
         _execute_command(run_id, "final_backtest", final_command, log_path)
-        _store_artifact(run_id, "final_backtest", final_result_path)
-        final_metrics = parse_backtest_metrics(final_result_path)
+        final_result_path = find_backtest_result_file(final_result_dir)
+        if final_result_path:
+            _store_artifact(run_id, "final_backtest", final_result_path)
+        final_metrics = parse_backtest_metrics(final_result_dir)
         if final_metrics:
             replace_metrics(run_id, "final", final_metrics)
         else:
@@ -352,4 +380,3 @@ def run_worker_loop(poll_interval: int, once: bool = False) -> None:
             return
         if not processed:
             time.sleep(poll_interval)
-

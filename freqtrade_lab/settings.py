@@ -7,7 +7,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 STRATEGIES_DIR = ROOT_DIR / "Strategies"
 CONFIG_DIR = ROOT_DIR / "config"
-DATA_DIR = Path(os.getenv("FREQTRADE_DATA_DIR", ROOT_DIR / "data"))
+USER_DATA_DIR = Path(os.getenv("FREQTRADE_USER_DATA_DIR", ROOT_DIR / "user_data"))
+DATA_DIR = USER_DATA_DIR / "data"
 
 EXPERIMENTS_DIR = ROOT_DIR / "experiments"
 CONFIG_OUTPUT_DIR = EXPERIMENTS_DIR / "configs"
@@ -22,7 +23,15 @@ SOURCE_FOLDERS = {"root", "futures", "berlinguyinca", "Ninja", "lookahead_bias"}
 
 def ensure_runtime_directories() -> None:
     for path in (
+        USER_DATA_DIR,
         DATA_DIR,
+        USER_DATA_DIR / "strategies",
+        USER_DATA_DIR / "hyperopts",
+        USER_DATA_DIR / "freqaimodels",
+        USER_DATA_DIR / "hyperopt_results",
+        USER_DATA_DIR / "backtest_results",
+        USER_DATA_DIR / "logs",
+        USER_DATA_DIR / "notebooks",
         CONFIG_OUTPUT_DIR,
         DATABASE_DIR,
         RUNS_DIR,
@@ -45,4 +54,3 @@ def detect_source_folder(path: Path) -> str:
 
 def detect_market_type(path: Path) -> str:
     return "futures" if detect_source_folder(path) == "futures" else "spot"
-

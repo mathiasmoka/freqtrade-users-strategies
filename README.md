@@ -19,10 +19,10 @@ git clone https://github.com/AlexCryptoKing/freqtrade.git
 ```
 3. Download the data minimum 1 Month!
 
-freqtrade download-data -c user_data/config-torch.json --timerange 20240701-20240801 --timeframe 15m 30m 1h 2h 4h 8h 1d --erase
+freqtrade download-data -c config/base_config.json --timerange 20240701-20240801 --timeframe 15m 30m 1h 2h 4h 8h 1d --erase
 
 4. Hyperopt the Strategy!
-freqtrade hyperopt --hyperopt-loss SharpeHyperOptLossDaily --spaces buy sell stoploss -c user_data/config-torch.json --strategy haFbmS --timerange=20240601-20240914 --epochs 100
+freqtrade hyperopt --hyperopt-loss SharpeHyperOptLossDaily --spaces buy sell stoploss -c config/base_config.json --strategy haFbmS --timerange=20240601-20240914 --epochs 100
 ````
 
 ## MVP benchmark stack
@@ -60,7 +60,7 @@ docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli disco
 Queue a first batch:
 
 ```shell
-docker compose exec runner python -m freqtrade_lab.cli enqueue \
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli enqueue \
   --timerange 20240101-20240301 \
   --pairs BTC/USDT,ETH/USDT,SOL/USDT \
   --epochs 20 \
@@ -81,6 +81,114 @@ http://localhost:8501
 - Runtime artifacts are written to `experiments/configs/`, `experiments/runs/` and `experiments/logs/`.
 - You still need market data compatible with your chosen pairs and timeframes for Freqtrade backtests to succeed.
 
+## Précisions
+
+Le vrai exécuteur est le service runner. Pour que ça tourne, il faut :
+
+  1. démarrer le worker en arrière-plan avec docker compose up -d runner
+  2. vérifier qu’il consomme la queue avec docker compose logs -f runner
+  3. voir l’état des runs avec docker compose run --rm --entrypoint "" runner python -m
+     freqtrade_lab.cli status
+
+  Ce n’est probablement pas un problème de “config Freqtrade” au sens API keys. Pour du
+  backtesting et du hyperopt, les clés exchange ne sont pas nécessaires dans ce MVP,
+  car le config est généré automatiquement par run. Le point bloquant le plus probable
+  est l’absence de données historiques dans user_data/data/. Sans données, le worker va échouer
+  rapidement quand il appellera freqtrade backtesting.
+
+  J’ai renforcé ça dans le code :
+
+  - freqtrade_lab/runner.py vérifie maintenant explicitement que user_data/data/ contient des
+    fichiers avant d’appeler Freqtrade
+
+  - freqtrade_lab/cli.py a une commande status
+  - README.md explique maintenant que enqueue s’arrête immédiatement par design
+
+  La prochaine étape concrète est de charger des données, puis relancer le worker.
+
+## Commandes
+
+### Build et démarrage
+
+```shell
+docker compose build
+docker compose up -d runner dashboard
+docker compose ps
+```
+
+### Initialisation
+
+```shell
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli init-db
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli discover
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli clear-runs
+```
+
+### Téléchargement des données spot
+
+```shell
+docker compose run --rm --entrypoint "" runner \
+  freqtrade download-data \
+  --userdir ./user_data \
+  --config ./config/base_config.json \
+  --exchange binance \
+  --pairs BTC/USDT ETH/USDT SOL/USDT \
+  --timeframes 5m 15m 1h \
+  --timerange 20240101-20240301
+```
+
+### Téléchargement des données futures
+--> modifier le fichier config de spot à futures avant
+
+```shell
+docker compose run --rm --entrypoint "" runner \
+  freqtrade download-data \
+  --userdir ./user_data \
+  --config ./config/base_config.json \
+  --trading-mode futures \
+  --exchange binance \
+  --pairs BTC/USDT:USDT ETH/USDT:USDT SOL/USDT:USDT \
+  --timeframes 5m 15m 1h \
+  --timerange 20240101-20240301
+```
+
+### Mise en queue d’un batch spot
+
+```shell
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli enqueue \
+  --timerange 20240101-20240301 \
+  --pairs BTC/USDT,ETH/USDT,SOL/USDT \
+  --epochs 20 \
+  --spaces buy,sell,roi,stoploss \
+  --market-type spot \
+  --limit 10
+```
+
+### Mise en queue d’un batch futures
+
+```shell
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli enqueue \
+  --timerange 20240101-20240301 \
+  --pairs BTC/USDT:USDT,ETH/USDT:USDT,SOL/USDT:USDT \
+  --epochs 20 \
+  --spaces buy,sell,roi,stoploss \
+  --market-type futures \
+  --limit 10
+```
+
+### Suivi d’exécution
+
+```shell
+docker compose logs -f runner
+docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli status --limit 20
+```
+
+### Dashboard
+
+```text
+http://localhost:8501
+```
+
 ## Contributing
 Contacts: 
 
@@ -89,6 +197,4 @@ Contacts:
 
 Contributions to the project are welcome! If you find any issues or have suggestions for improvements, please open an
 issue or submit a pull request on the [GitHub repository](https://github.com/AlexCryptoKing/freqailstm.git).
-
-
 
