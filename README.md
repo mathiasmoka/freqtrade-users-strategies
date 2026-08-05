@@ -1,11 +1,20 @@
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Freqtrade](https://img.shields.io/badge/Freqtrade-FF6B35?logo=bitcoin&logoColor=white)](https://www.freqtrade.io/)
 
-# A Good Overview of Freqtrade Strategies made by Community @AlexCryptoKing
+# Automated testing and comparisons of FreqTrade Crypto Bot Strategies
 
+## Brief overview of the project:
 
-## Overview
+This repository originally contained several hundred FreqTrade strategies (a Python library that facilitates the development of FreqTrade crypto bots, built on top of CCXT).
 
-This is a good overview of working Freqtrade Strategies of my Community
+I wanted to quickly test all of these different strategies to determine which ones warranted further analysis.
+
+So I built this project: an architecture that automates strategy testing and comparison, displaying the results in a dashboard.
+
+The project uses Docker to simplify deployment.
+
+To test new strategies, simply add them to the Strategy folder.
 
 ## Quick Start
 
