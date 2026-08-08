@@ -21,7 +21,7 @@ To test new strategies, simply add them to the Strategy folder.
 1. Clone the repository
 
 ```shell
-git clone https://github.com/AlexCryptoKing/freqtrade.git
+git clone https://github.com/mathiasmoka/freqtrade-users-strategies.git
 ```
 2. Copy the selected Strategy files to the freqtrade Strategy directory
 
@@ -197,4 +197,3 @@ docker compose run --rm --entrypoint "" runner python -m freqtrade_lab.cli statu
 ```text
 http://localhost:8501
 ```
-
